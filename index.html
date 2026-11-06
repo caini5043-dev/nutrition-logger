@@ -3,60 +3,142 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>营养记录器</title>
+<title>健身营养记录</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif}
-body{background:#f4f6f8;padding:20px;max-width:600px;margin:0 auto}
-h1{text-align:center;margin-bottom:24px;color:#222;font-size:24px}
-.card{background:#fff;border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:0 2px 10px #00000010}
-input{width:100%;padding:12px 14px;margin:8px 0;border:1px solid #ddd;border-radius:10px;font-size:16px}
-button{width:100%;padding:13px;border:none;border-radius:10px;background:#4080ff;color:#fff;font-size:17px;margin-top:8px}
-button:active{background:#2b6ed9}
-.item{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid #eee}
+body{background:#f4f6f8;padding:16px;max-width:620px;margin:0 auto}
+h1{text-align:center;margin-bottom:16px;color:#222;font-size:24px}
+.card{background:#fff;border-radius:16px;padding:18px;margin-bottom:16px;box-shadow:0 2px 10px #00000010}
+input{width:100%;padding:12px 14px;margin:6px 0;border:1px solid #ddd;border-radius:10px;font-size:16px}
+button{padding:12px;border:none;border-radius:10px;color:#fff;font-size:16px;margin:6px 0}
+.btn-blue{background:#4080ff;width:100%}
+.btn-orange{background:#ff7d39;width:100%}
+.btn-grey{background:#999;width:100%}
+.btn-quick{background:#36c;background:#444;color:#fff;margin:4px;width:calc(50% - 6px)}
+.quick-wrap{display:flex;flex-wrap:wrap;gap:4px}
+.item{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #eee}
 .del{color:#ff4d4f}
-.total{font-weight:bold;font-size:18px;margin-top:12px;text-align:right}
+.sum-text{font-weight:bold;font-size:17px;margin:8px 0}
+.day-title{font-size:18px;margin:20px 0 8px;color:#333;border-left:4px solid #4080ff;padding-left:8px}
+.remain{padding:12px;border-radius:12px;background:#eef6ff;margin:10px 0}
 </style>
 </head>
 <body>
-<h1>营养记录器</h1>
+<h1>健身营养记录</h1>
+
 <div class="card">
-<input id="food" placeholder="食物名称">
-<input id="cal" placeholder="热量（kcal）" type="number">
-<input id="protein" placeholder="蛋白质（g）" type="number">
-<button onclick="addItem()">添加记录</button>
+  <div class="sum-text">设置每日目标</div>
+  <input id="targetCal" placeholder="目标热量 kcal" type="number">
+  <input id="targetPro" placeholder="目标蛋白质 g" type="number">
+  <button class="btn-orange" onclick="saveTarget()">保存目标</button>
 </div>
+
+<div class="card remain">
+  <div>今日合计：热量 <span id="sumCal">0</span> kcal｜蛋白 <span id="sumPro">0</span> g</div>
+  <div>剩余：热量 <span id="leftCal">-</span> kcal｜蛋白 <span id="leftPro">-</span> g</div>
+</div>
+
 <div class="card">
-<div id="list"></div>
-<div class="total">合计：热量 <span id="sumCal">0</span> kcal｜蛋白 <span id="sumPro">0</span> g</div>
-<button style="background:#999;margin-top:16px" onclick="clearAll()">清空全部</button>
+  <div class="sum-text">🔥 快捷录入（一键添加）</div>
+  <div class="quick-wrap">
+    <button class="btn-quick" onclick="quickAdd('Hot六重蛋白粉','',130,24)">Hot六重</button>
+    <button class="btn-quick" onclick="quickAdd('概特酵母蛋白粉','睡前',110,20)">酵母蛋白粉</button>
+    <button class="btn-quick" onclick="quickAdd('5个全蛋','',360,30)">五个全蛋</button>
+    <button class="btn-quick" onclick="quickAdd('多酱鸡公煲','外卖',750,45)">鸡公煲</button>
+    <button class="btn-quick" onclick="quickAdd('卧龙锅巴大袋','零食',520,8)">卧龙锅巴</button>
+  </div>
 </div>
+
+<div class="card">
+  <div class="sum-text">自定义添加</div>
+  <input id="food" placeholder="食物名称">
+  <input id="note" placeholder="备注（练后/午餐）">
+  <input id="cal" placeholder="热量（kcal）" type="number">
+  <input id="protein" placeholder="蛋白质（g）" type="number">
+  <button class="btn-blue" onclick="addItem()">添加记录</button>
+</div>
+
+<div class="card">
+  <div id="list"></div>
+  <button class="btn-grey" style="margin-top:16px" onclick="clearToday()">清空今日</button>
+</div>
+
 <script>
-let data=JSON.parse(localStorage.getItem("foodList"))||[]
+function getTodayKey(){
+  const d=new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
+let allData=JSON.parse(localStorage.getItem("nutritionAll"))||{}
+let target=JSON.parse(localStorage.getItem("nutritionTarget"))||{cal:0,pro:0}
+
+function saveTarget(){
+  target.cal=Number(document.getElementById("targetCal").value||0)
+  target.pro=Number(document.getElementById("targetPro").value||0)
+  localStorage.setItem("nutritionTarget",JSON.stringify(target))
+  render()
+}
+
+function quickAdd(name,note,cal,pro){
+  const today=getTodayKey()
+  if(!allData[today]) allData[today]=[]
+  allData[today].push({name,note,cal,pro})
+  render()
+}
+
 function render(){
-    let html=""
-    let sc=0,sp=0
-    data.forEach((v,i)=>{
-        html+=`<div class="item"><div>${v.name}｜${v.cal} kcal｜${v.pro} g</div><div class="del" onclick="del(${i})">删除</div></div>`
-        sc+=Number(v.cal);sp+=Number(v.pro)
+  document.getElementById("targetCal").value=target.cal
+  document.getElementById("targetPro").value=target.pro
+  const today=getTodayKey()
+  const todayList=allData[today]||[]
+  let sc=0,sp=0
+  todayList.forEach(i=>{sc+=Number(i.cal);sp+=Number(i.pro)})
+  document.getElementById("sumCal").innerText=sc
+  document.getElementById("sumPro").innerText=sp
+  document.getElementById("leftCal").innerText=target.cal?(target.cal-sc):"未设置"
+  document.getElementById("leftPro").innerText=target.pro?(target.pro-sp):"未设置"
+
+  let html=""
+  const keys=Object.keys(allData).sort().reverse()
+  for(const k of keys){
+    html+=`<div class="day-title">${k}</div>`
+    allData[k].forEach((v,idx)=>{
+      html+=`<div class="item">
+        <div>${v.name} ${v.note?"（"+v.note+"）":""}｜${v.cal} kcal｜${v.pro} g</div>
+        <div class="del" onclick="delItem('${k}',${idx})">删除</div>
+      </div>`
     })
-    document.getElementById("list").innerHTML=html
-    document.getElementById("sumCal").innerText=sc
-    document.getElementById("sumPro").innerText=sp
-    localStorage.setItem("foodList",JSON.stringify(data))
+  }
+  document.getElementById("list").innerHTML=html
+  localStorage.setItem("nutritionAll",JSON.stringify(allData))
 }
+
 function addItem(){
-    let name=document.getElementById("food").value.trim()
-    let c=document.getElementById("cal").value
-    let p=document.getElementById("protein").value
-    if(!name||!c)return
-    data.push({name,cal:c,pro:p})
-    document.getElementById("food").value=""
-    document.getElementById("cal").value=""
-    document.getElementById("protein").value=""
-    render()
+  const name=document.getElementById("food").value.trim()
+  const note=document.getElementById("note").value.trim()
+  const c=Number(document.getElementById("cal").value)
+  const p=Number(document.getElementById("protein").value)
+  if(!name||!c)return
+  const today=getTodayKey()
+  if(!allData[today]) allData[today]=[]
+  allData[today].push({name,note,cal:c,pro:p})
+  document.getElementById("food").value=""
+  document.getElementById("note").value=""
+  document.getElementById("cal").value=""
+  document.getElementById("protein").value=""
+  render()
 }
-function del(i){data.splice(i,1);render()}
-function clearAll(){data=[];render()}
+
+function delItem(dateKey,idx){
+  allData[dateKey].splice(idx,1)
+  if(allData[dateKey].length===0) delete allData[dateKey]
+  render()
+}
+
+function clearToday(){
+  const today=getTodayKey()
+  delete allData[today]
+  render()
+}
 render()
 </script>
 </body>
