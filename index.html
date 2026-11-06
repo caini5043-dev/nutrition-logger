@@ -1,145 +1,195 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>健身营养记录</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+<title>Flappy 自定义头像版</title>
 <style>
-*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif}
-body{background:#f4f6f8;padding:16px;max-width:620px;margin:0 auto}
-h1{text-align:center;margin-bottom:16px;color:#222;font-size:24px}
-.card{background:#fff;border-radius:16px;padding:18px;margin-bottom:16px;box-shadow:0 2px 10px #00000010}
-input{width:100%;padding:12px 14px;margin:6px 0;border:1px solid #ddd;border-radius:10px;font-size:16px}
-button{padding:12px;border:none;border-radius:10px;color:#fff;font-size:16px;margin:6px 0}
-.btn-blue{background:#4080ff;width:100%}
-.btn-orange{background:#ff7d39;width:100%}
-.btn-grey{background:#999;width:100%}
-.btn-quick{background:#36c;background:#444;color:#fff;margin:4px;width:calc(50% - 6px)}
-.quick-wrap{display:flex;flex-wrap:wrap;gap:4px}
-.item{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #eee}
-.del{color:#ff4d4f}
-.sum-text{font-weight:bold;font-size:17px;margin:8px 0}
-.day-title{font-size:18px;margin:20px 0 8px;color:#333;border-left:4px solid #4080ff;padding-left:8px}
-.remain{padding:12px;border-radius:12px;background:#eef6ff;margin:10px 0}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden;background:#71c5cf}
+canvas{display:block;margin:0 auto}
 </style>
 </head>
 <body>
-<h1>健身营养记录</h1>
-
-<div class="card">
-  <div class="sum-text">设置每日目标</div>
-  <input id="targetCal" placeholder="目标热量 kcal" type="number">
-  <input id="targetPro" placeholder="目标蛋白质 g" type="number">
-  <button class="btn-orange" onclick="saveTarget()">保存目标</button>
-</div>
-
-<div class="card remain">
-  <div>今日合计：热量 <span id="sumCal">0</span> kcal｜蛋白 <span id="sumPro">0</span> g</div>
-  <div>剩余：热量 <span id="leftCal">-</span> kcal｜蛋白 <span id="leftPro">-</span> g</div>
-</div>
-
-<div class="card">
-  <div class="sum-text">🔥 快捷录入（一键添加）</div>
-  <div class="quick-wrap">
-    <button class="btn-quick" onclick="quickAdd('Hot六重蛋白粉','',130,24)">Hot六重</button>
-    <button class="btn-quick" onclick="quickAdd('概特酵母蛋白粉','睡前',110,20)">酵母蛋白粉</button>
-    <button class="btn-quick" onclick="quickAdd('5个全蛋','',360,30)">五个全蛋</button>
-    <button class="btn-quick" onclick="quickAdd('多酱鸡公煲','外卖',750,45)">鸡公煲</button>
-    <button class="btn-quick" onclick="quickAdd('卧龙锅巴大袋','零食',520,8)">卧龙锅巴</button>
-  </div>
-</div>
-
-<div class="card">
-  <div class="sum-text">自定义添加</div>
-  <input id="food" placeholder="食物名称">
-  <input id="note" placeholder="备注（练后/午餐）">
-  <input id="cal" placeholder="热量（kcal）" type="number">
-  <input id="protein" placeholder="蛋白质（g）" type="number">
-  <button class="btn-blue" onclick="addItem()">添加记录</button>
-</div>
-
-<div class="card">
-  <div id="list"></div>
-  <button class="btn-grey" style="margin-top:16px" onclick="clearToday()">清空今日</button>
-</div>
-
+<canvas id="game"></canvas>
 <script>
-function getTodayKey(){
-  const d=new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+function resize(){
+  canvas.width = Math.min(window.innerWidth,420);
+  canvas.height = Math.min(window.innerHeight,720);
 }
-let allData=JSON.parse(localStorage.getItem("nutritionAll"))||{}
-let target=JSON.parse(localStorage.getItem("nutritionTarget"))||{cal:0,pro:0}
+resize();
+window.addEventListener('resize',resize);
 
-function saveTarget(){
-  target.cal=Number(document.getElementById("targetCal").value||0)
-  target.pro=Number(document.getElementById("targetPro").value||0)
-  localStorage.setItem("nutritionTarget",JSON.stringify(target))
-  render()
+// ==========data:image/jpeg;base64,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 ==========
+const birdImg = new Image();
+birdImg.src = "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";
+// =============================================
+
+let bird = {
+  x: canvas.width * 0.25,
+  y: canvas.height / 2,
+  w: 44,
+  h: 56,
+  vy: 0,
+  gravity: 0.32,
+  jump: -8
+};
+
+let pipes = [];
+const pipeW = 64;
+const gap = 130;
+let pipeSpeed = 3;
+let spawnTimer = 0;
+const spawnInterval = 130;
+
+let score = 0;
+let best = Number(localStorage.getItem("flappyBest")) || 0;
+let gameOver = false;
+let started = false;
+
+function resetGame(){
+  bird.y = canvas.height / 2;
+  bird.vy = 0;
+  pipes = [];
+  score = 0;
+  gameOver = false;
+  started = false;
 }
 
-function quickAdd(name,note,cal,pro){
-  const today=getTodayKey()
-  if(!allData[today]) allData[today]=[]
-  allData[today].push({name,note,cal,pro})
-  render()
-}
-
-function render(){
-  document.getElementById("targetCal").value=target.cal
-  document.getElementById("targetPro").value=target.pro
-  const today=getTodayKey()
-  const todayList=allData[today]||[]
-  let sc=0,sp=0
-  todayList.forEach(i=>{sc+=Number(i.cal);sp+=Number(i.pro)})
-  document.getElementById("sumCal").innerText=sc
-  document.getElementById("sumPro").innerText=sp
-  document.getElementById("leftCal").innerText=target.cal?(target.cal-sc):"未设置"
-  document.getElementById("leftPro").innerText=target.pro?(target.pro-sp):"未设置"
-
-  let html=""
-  const keys=Object.keys(allData).sort().reverse()
-  for(const k of keys){
-    html+=`<div class="day-title">${k}</div>`
-    allData[k].forEach((v,idx)=>{
-      html+=`<div class="item">
-        <div>${v.name} ${v.note?"（"+v.note+"）":""}｜${v.cal} kcal｜${v.pro} g</div>
-        <div class="del" onclick="delItem('${k}',${idx})">删除</div>
-      </div>`
-    })
+function jump(){
+  if(gameOver){
+    resetGame();
+    return;
   }
-  document.getElementById("list").innerHTML=html
-  localStorage.setItem("nutritionAll",JSON.stringify(allData))
+  if(!started) started = true;
+  bird.vy = bird.jump;
 }
 
-function addItem(){
-  const name=document.getElementById("food").value.trim()
-  const note=document.getElementById("note").value.trim()
-  const c=Number(document.getElementById("cal").value)
-  const p=Number(document.getElementById("protein").value)
-  if(!name||!c)return
-  const today=getTodayKey()
-  if(!allData[today]) allData[today]=[]
-  allData[today].push({name,note,cal:c,pro:p})
-  document.getElementById("food").value=""
-  document.getElementById("note").value=""
-  document.getElementById("cal").value=""
-  document.getElementById("protein").value=""
-  render()
+canvas.addEventListener("pointerdown", e=>{
+  e.preventDefault();
+  jump();
+});
+document.addEventListener("keydown", e=>{
+  if(e.code === "Space") jump();
+});
+
+function spawnPipe(){
+  const minTop = 60;
+  const maxTop = canvas.height - gap - 60;
+  const topH = minTop + Math.random() * (maxTop - minTop);
+  pipes.push({
+    x: canvas.width,
+    topH: topH,
+    scored: false
+  });
 }
 
-function delItem(dateKey,idx){
-  allData[dateKey].splice(idx,1)
-  if(allData[dateKey].length===0) delete allData[dateKey]
-  render()
+function rectOverlap(a,b){
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
 
-function clearToday(){
-  const today=getTodayKey()
-  delete allData[today]
-  render()
+function update(){
+  if(!started || gameOver) return;
+
+  bird.vy += bird.gravity;
+  bird.y += bird.vy;
+
+  spawnTimer++;
+  if(spawnTimer >= spawnInterval){
+    spawnPipe();
+    spawnTimer = 0;
+  }
+
+  for(let i = pipes.length -1; i >=0; i--){
+    const p = pipes[i];
+    p.x -= pipeSpeed;
+
+    if(!p.scored && p.x + pipeW < bird.x){
+      score++;
+      p.scored = true;
+    }
+    if(p.x + pipeW < 0){
+      pipes.splice(i,1);
+    }
+
+    const birdBox = {
+      x: bird.x + 8,
+      y: bird.y + 10,
+      w: bird.w - 16,
+      h: bird.h - 20
+    };
+    const pipeTop = {x:p.x, y:0, w:pipeW, h:p.topH};
+    const pipeBot = {x:p.x, y:p.topH + gap, w:pipeW, h:canvas.height};
+    if(rectOverlap(birdBox, pipeTop) || rectOverlap(birdBox, pipeBot)){
+      gameOver = true;
+      if(score > best){
+        best = score;
+        localStorage.setItem("flappyBest", best);
+      }
+    }
+  }
+
+  if(bird.y + bird.h > canvas.height || bird.y < 0){
+    gameOver = true;
+    if(score > best){
+      best = score;
+      localStorage.setItem("flappyBest", best);
+    }
+  }
 }
-render()
+
+function draw(){
+  ctx.fillStyle = "#71c5cf";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  ctx.fillStyle = "#33aa33";
+  for(const p of pipes){
+    ctx.fillRect(p.x, 0, pipeW, p.topH);
+    ctx.fillRect(p.x, p.topH + gap, pipeW, canvas.height);
+    ctx.strokeStyle="#227722";
+    ctx.lineWidth=3;
+    ctx.strokeRect(p.x,0,pipeW,p.topH);
+    ctx.strokeRect(p.x, p.topH+gap, pipeW, canvas.height);
+  }
+
+  const rot = Math.min(Math.max(bird.vy * 0.06, -0.4), 0.8);
+  ctx.save();
+  ctx.translate(bird.x + bird.w/2, bird.y + bird.h/2);
+  ctx.rotate(rot);
+  if(birdImg.complete && birdImg.naturalWidth){
+    ctx.drawImage(birdImg, -bird.w/2, -bird.h/2, bird.w, bird.h);
+  }else{
+    ctx.fillStyle="#ffd700";
+    ctx.beginPath();
+    ctx.arc(0,0,24,0,Math.PI*2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  ctx.fillStyle="#fff";
+  ctx.font="bold 32px system-ui";
+  ctx.textAlign="center";
+  ctx.fillText(score, canvas.width/2, 50);
+  ctx.font="18px system-ui";
+  ctx.fillText("最高分："+best, canvas.width/2, 80);
+
+  if(!started && !gameOver){
+    ctx.fillText("点击屏幕开始", canvas.width/2, canvas.height/2);
+  }
+  if(gameOver){
+    ctx.fillText("游戏结束！点击重新开始", canvas.width/2, canvas.height/2);
+  }
+}
+
+function loop(){
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+loop();
 </script>
 </body>
 </html>
